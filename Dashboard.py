@@ -46,7 +46,7 @@ st.markdown("---")
 st.markdown(
 f"""
 <div style="text-align: center; color: #666; font-size: 12px;">
-    Dashboard - Gradation 2.15.21.18.19.5 → BOURSE<br>
+    Dashboard - Gradation 2.15.21.18.19.5 -> BOURSE<br>
     Derniere mise a jour : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 </div>
 """,
