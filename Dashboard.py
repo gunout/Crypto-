@@ -15,18 +15,26 @@ import plotly.express as px
 import math
 import time
 import random
-import string
 import binascii
 import statistics
 import os
 import sys
 import platform
-import psutil
-import subprocess
 from collections import Counter
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
-from cryptography.hazmat.backends import default_backend
+
+# Tentative d'import psutil (optionnel)
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
+# Tentative d'import scipy (optionnel)
+try:
+    from scipy import stats
+    HAS_SCIPY = True
+except ImportError:
+    HAS_SCIPY = False
 
 # ============================================
 # CONFIGURATION
@@ -198,7 +206,7 @@ def calculate_autocorrelation(data):
     bytes_data = data.encode() if isinstance(data, str) else data
     n = len(bytes_data)
     if n < 2:
-        return 0
+        return []
     mean = sum(bytes_data) / n
     autocorr = []
     for lag in range(1, min(10, n)):
@@ -259,14 +267,19 @@ def calculate_security_strength(bits):
 
 def get_system_info():
     """Informations système"""
-    return {
+    info = {
         "python_version": sys.version,
         "platform": platform.platform(),
         "processor": platform.processor(),
         "hostname": platform.node(),
-        "memory_total": psutil.virtual_memory().total / (1024**3) if psutil else "N/A",
-        "memory_available": psutil.virtual_memory().available / (1024**3) if psutil else "N/A",
     }
+    if HAS_PSUTIL:
+        info["memory_total"] = psutil.virtual_memory().total / (1024**3)
+        info["memory_available"] = psutil.virtual_memory().available / (1024**3)
+    else:
+        info["memory_total"] = "N/A"
+        info["memory_available"] = "N/A"
+    return info
 
 def get_hash_byte_distribution():
     """Distribution des bytes du hash"""
@@ -339,6 +352,8 @@ def create_distribution_chart(data, title):
 def create_autocorrelation_chart():
     """Graphique d'autocorrélation"""
     autocorr = calculate_autocorrelation(HASH_FINAL)
+    if not autocorr:
+        autocorr = [0]
     fig = go.Figure(data=[go.Bar(x=list(range(1, len(autocorr)+1)), y=autocorr)])
     fig.update_layout(
         title="Autocorrelation Analysis",
@@ -358,18 +373,41 @@ def create_radar_chart():
     
     categories = ['Shannon\nEntropy', 'Min\nEntropy', 'Collision\nEntropy', 'Conditional\nEntropy', 'Avalanche\nEffect', 'SAC']
     values = [
-        entropy_data['shannon'] / 4 * 100,
-        entropy_data['min_entropy'] / 4 * 100,
-        entropy_data['collision_entropy'] / 4 * 100,
-        entropy_data['conditional_entropy'] / 4 * 100,
-        entropy_data['avalanche'],
-        entropy_data['sac'] * 100
+        min(100, entropy_data['shannon'] / 4 * 100),
+        min(100, entropy_data['min_entropy'] / 4 * 100),
+        min(100, entropy_data['collision_entropy'] / 4 * 100),
+        min(100, entropy_data['conditional_entropy'] / 4 * 100),
+        min(100, entropy_data['avalanche']),
+        min(100, entropy_data['sac'] * 100)
     ]
     
     fig = go.Figure(data=go.Scatterpolar(r=values, theta=categories, fill='toself'))
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 100], color='white')),
         showlegend=False,
+        paper_bgcolor='black',
+        font=dict(color='white')
+    )
+    return fig
+
+def create_qq_plot(data):
+    """QQ Plot simple sans scipy"""
+    data_sorted = sorted(data)
+    n = len(data_sorted)
+    # Quantiles théoriques pour une distribution normale
+    theoretical = [stats.norm.ppf((i - 0.5) / n) if HAS_SCIPY else (i - 0.5) / n for i in range(1, n+1)]
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=theoretical, y=data_sorted, mode='markers', name='Donnees', marker=dict(color='#00ff88')))
+    # Ligne de référence
+    if data_sorted:
+        min_val, max_val = min(data_sorted), max(data_sorted)
+        fig.add_trace(go.Scatter(x=[min(theoretical), max(theoretical)], y=[min_val, max_val], mode='lines', name='Reference', line=dict(color='red')))
+    
+    fig.update_layout(
+        title="QQ Plot Hash vs Distribution Normale",
+        xaxis_title="Quantiles theoriques",
+        yaxis_title="Quantiles observes",
         paper_bgcolor='black',
         font=dict(color='white')
     )
@@ -599,7 +637,7 @@ elif page == "📊 Analyse Entropique":
         st.markdown("### 🎲 Aleatoire du Hash")
         hash_ints = list(bytes.fromhex(HASH_FINAL))
         
-        st.markdown("**Tests de randomite simplifie:**")
+        st.markdown("**Tests de randomite simplifies:**")
         
         # Test de frequence
         ones_count = sum(bin(b).count('1') for b in hash_ints[:100])
@@ -681,20 +719,8 @@ elif page == "📈 Statistiques Avancees":
     # QQ Plot
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.markdown("### 📈 QQ Plot - Comparaison avec distribution normale")
-    
-    from scipy import stats
-    qq_data = stats.probplot(hash_bytes, dist="norm", plot=None)
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=qq_data[0][0], y=qq_data[0][1], mode='markers', name='Donnees', marker=dict(color='#00ff88')))
-    fig.add_trace(go.Scatter(x=qq_data[0][0], y=qq_data[1][0] + qq_data[1][1]*qq_data[0][0], mode='lines', name='Theorique', line=dict(color='red')))
-    fig.update_layout(
-        title="QQ Plot Hash vs Distribution Normale",
-        xaxis_title="Quantiles theoriques",
-        yaxis_title="Quantiles observes",
-        paper_bgcolor='black',
-        font=dict(color='white')
-    )
+    hash_ints = list(bytes.fromhex(HASH_FINAL))
+    fig = create_qq_plot(hash_ints)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -708,7 +734,7 @@ elif page == "🔑 Signature & Certificat":
     
     with col1:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔐 Signature Completa")
+        st.markdown("### 🔐 Signature Complete")
         st.code(SIGNATURE, language="text")
         st.caption(f"Longueur: {len(SIGNATURE)} hex | 64 bytes | Ed25519 signature")
         
@@ -847,19 +873,19 @@ elif page == "ℹ️ Informations Systeme":
         | **Platforme** | {sys_info['platform']} |
         | **Processeur** | {sys_info['processor'] or 'N/A'} |
         | **Hostname** | {sys_info['hostname']} |
-        | **Memory Total** | {sys_info['memory_total']:.1f} GB |
-        | **Memory Available** | {sys_info['memory_available']:.1f} GB |
+        | **Memory Total** | {sys_info['memory_total']} |
+        | **Memory Available** | {sys_info['memory_available']} |
         """)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
         st.markdown("### 🔐 Bibliotheques")
         libs = {
-            "PyNaCl": HAS_NACL,
-            "Cryptography": "Installe" if 'cryptography' in sys.modules else "Non installe",
+            "PyNaCl": "✅ Installe" if HAS_NACL else "❌ Non installe",
             "NumPy": np.__version__,
             "Pandas": pd.__version__,
-            "Plotly": go.__version__
+            "Plotly": go.__version__,
+            "psutil": "✅ Installe" if HAS_PSUTIL else "❌ Non installe"
         }
         for lib, version in libs.items():
             st.markdown(f"- **{lib}**: {version}")
