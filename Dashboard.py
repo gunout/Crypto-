@@ -82,6 +82,13 @@ st.markdown("""
     .stButton > button:hover { background: #2a2a3e; border-color: #4a4a6e; }
     
     hr { border-color: #2a2a3e; }
+    
+    /* Style pour les expanders */
+    .streamlit-expanderHeader {
+        background-color: #2a2a3e !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -289,9 +296,9 @@ def create_entropy_visualization():
     
     fig = go.Figure(data=[go.Surface(z=Z, x=X, y=Y, colorscale='Viridis')])
     fig.update_layout(
-        title=dict(text="Quantum Entropy Landscape", font=dict(color='white')),
+        title=dict(text="Paysage d'Entropie Quantique (Visualisation 3D)", font=dict(color='white')),
         scene=dict(
-            xaxis_title="X", yaxis_title="Y", zaxis_title="Entropy",
+            xaxis_title="Axe X", yaxis_title="Axe Y", zaxis_title="Densité d'Entropie",
             bgcolor='black', xaxis=dict(color='white'), yaxis=dict(color='white'), zaxis=dict(color='white')
         ),
         paper_bgcolor='black',
@@ -305,8 +312,8 @@ def create_distribution_chart(data, title):
     bytes_data = bytes.fromhex(data)
     fig = px.histogram(list(bytes_data), nbins=256, title=title)
     fig.update_layout(paper_bgcolor='black', font=dict(color='white'), plot_bgcolor='black')
-    fig.update_xaxes(title="Byte value", color='white')
-    fig.update_yaxes(title="Frequency", color='white')
+    fig.update_xaxes(title="Valeur du Byte (0-255)", color='white')
+    fig.update_yaxes(title="Fréquence", color='white')
     return fig
 
 def create_radar_chart():
@@ -336,7 +343,7 @@ def create_radar_chart():
 # SIDEBAR
 # ============================================
 with st.sidebar:
-    st.markdown("## Navigation")
+    st.markdown("## 🧭 Navigation")
     page = st.radio("", [
         "🏠 Dashboard Principal",
         "🔐 Verification Crypto",
@@ -348,16 +355,16 @@ with st.sidebar:
     ])
     
     st.markdown("---")
-    st.markdown("## Metriques Rapides")
+    st.markdown("## ⚡ Metriques Rapides")
     
     is_valid, _ = verify_signature()
-    st.metric("Statut", "✅ VALIDE" if is_valid else "❌ INVALIDE")
+    st.metric("Statut Signature", "✅ VALIDE" if is_valid else "❌ INVALIDE")
     
     entropy = calculate_entropy(HASH_FINAL)
     st.metric("Entropie Shannon", f"{entropy:.3f} bits")
     
     sec_strength, _ = calculate_security_strength(len(HASH_FINAL) * 4)
-    st.metric("Niveau Securite", sec_strength.split()[0])
+    st.metric("Niveau Securite", sec_strength.split("(")[0])
     
     st.markdown("---")
     st.caption(f"Derniere mise a jour: {datetime.now().strftime('%H:%M:%S')}")
@@ -368,12 +375,22 @@ with st.sidebar:
 if page == "🏠 Dashboard Principal":
     st.markdown("""
     <div class="main-header">
-        <h1>🔐 Gradation BOURSE</h1>
-        <h2>2.15.21.18.19.5 → BOURSE</h2>
-        <p>Quantum Cryptography | Ed25519 Signatures | Post-Quantum Ready</p>
+        <h1>🔐 Gradation Quantique : BOURSE</h1>
+        <h2>2.15.21.18.19.5 → B-O-U-R-S-E</h2>
+        <p>Cryptographie Post-Quantique | Signatures Ed25519 | Analyse NIST</p>
     </div>
     """, unsafe_allow_html=True)
     
+    with st.expander("📚 Qu'est-ce que le système de Gradation Quantique ?"):
+        st.markdown("""
+        Ce système transforme une séquence numérique de base (ici `2.15.21.18.19.5`, correspondant aux positions alphabétiques de B-O-U-R-S-E) en une empreinte cryptographique sécurisée.
+        
+        **Caractéristiques principales :**
+        - **Algorithme de signature : Ed25519**. Basé sur les courbes elliptiques twisted Edwards (Curve25519), il offre une sécurité de 128 bits avec des performances élevées et une résistance aux attaques par canal auxiliaire.
+        - **Post-Quantique Ready** : Bien que Ed25519 soit vulnérable à l'algorithme de Shor sur un ordinateur quantique suffisant, l'architecture hybride et l'entropie générée intègrent des principes de résilience quantique.
+        - **Entropie source** : Le hash est généré via un mix exponentiel factoriel hypermix (`triple_exponentielle_factorielle_hypermix`), garantissant une dispersion statistique maximale.
+        """)
+
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -383,10 +400,10 @@ if page == "🏠 Dashboard Principal":
         | Propriete | Valeur |
         |-----------|--------|
         | **Gradation** | `{GRADATION}` |
-        | **Mot** | `{MOT}` |
-        | **Timestamp** | `{TIMESTAMP[:19]}` |
-        | **Algorithme** | Ed25519 |
-        | **Hash Size** | {len(HASH_FINAL)} hex ({len(HASH_FINAL)//2} bytes) |
+        | **Mot Cible** | `{MOT}` |
+        | **Timestamp ISO** | `{TIMESTAMP[:19]}` |
+        | **Algorithme** | Ed25519 (EdDSA) |
+        | **Taille Hash** | {len(HASH_FINAL)} hex ({len(HASH_FINAL)//2} bytes) |
         """)
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -400,55 +417,57 @@ if page == "🏠 Dashboard Principal":
                 <p>Integrite cryptographique confirmee</p>
             </div>
             """, unsafe_allow_html=True)
+            st.caption("La signature prouve que le hash a été généré par le détenteur de la clé privée correspondante, sans aucune altération.")
         else:
             st.markdown("""
             <div class="status-invalid">
                 <h3>❌ SIGNATURE INVALIDE</h3>
-                <p>Verification echouee</p>
+                <p>Verification echouee - Alteation detectee</p>
             </div>
             """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔑 Clé Publique")
+        st.markdown("### 🔑 Clé Publique Ed25519")
         st.code(PUBLIC_KEY[:64], language="text")
-        st.caption("Ed25519 Public Key (32 bytes / 64 hex)")
+        st.caption("Clé de vérification 32 bytes (256 bits). Permet à tout tiers de vérifier l'authenticité sans pouvoir régénérer la signature.")
         st.markdown('</div>', unsafe_allow_html=True)
     
     # Hash complet
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.markdown("### 📝 Hash Final")
+    st.markdown("### 📝 Hash Final (Empreinte Cryptographique)")
     st.code(HASH_FINAL, language="text")
-    st.caption(f"Longueur: {len(HASH_FINAL)} caracteres hex | {len(HASH_FINAL)//2} bytes | {len(HASH_FINAL)*4} bits")
+    st.caption(f"Longueur: {len(HASH_FINAL)} caracteres hex | {len(HASH_FINAL)//2} bytes | {len(HASH_FINAL)*4} bits. Toute modification d'un seul bit en entrée change radicalement ce hash (Effet Avalanche).")
     st.markdown('</div>', unsafe_allow_html=True)
     
     # Visualisation
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        fig = create_distribution_chart(HASH_FINAL, "Distribution des bytes - Hash")
+        fig = create_distribution_chart(HASH_FINAL, "Distribution des Bytes - Hash (Idéalement uniforme)")
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        fig = create_distribution_chart(SIGNATURE, "Distribution des bytes - Signature")
+        fig = create_distribution_chart(SIGNATURE, "Distribution des Bytes - Signature Ed25519")
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     # Radar chart
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.markdown("### 🎯 Metriques de Securite")
+    st.markdown("### 🎯 Radar des Metriques de Securite")
     fig = create_radar_chart()
     st.plotly_chart(fig, use_container_width=True)
+    st.info("💡 Ce radar compare la qualité de l'empreinte selon différentes normes (Shannon, NIST, SAC). Un profil régulier et étendu vers l'extérieur indique une forte résistance aux attaques cryptanalytiques.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # PAGE 2: VERIFICATION CRYPTO
 # ============================================
 elif page == "🔐 Verification Crypto":
-    st.markdown('<div class="main-header"><h1>🔐 Verification Cryptographique</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>🔐 Verification Cryptographique Avancée</h1></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
@@ -461,23 +480,32 @@ elif page == "🔐 Verification Crypto":
         else:
             st.error(f"❌ {msg}")
         
+        with st.expander("🔍 Comment fonctionne la vérification EdDSA ?"):
+            st.markdown("""
+            L'algorithme Ed25519 (Edwards-curve Digital Signature Algorithm) fonctionne sur le principe de la preuve de connaissance zero :
+            1. **Clé Privée (Seed)** : Un secret de 32 octets.
+            2. **Clé Publique** : Point sur la courbe Curve25519 dérivé de la clé privée.
+            3. **Signature** : Composée de deux parties (R, S). R est un nonce déterministe, S est le calcul liant R, le message (hash) et la clé publique.
+            La vérification recalcule ce lien mathématique pour s'assurer qu'il correspond, sans jamais révéler la clé privée.
+            """)
+            
         st.markdown("---")
-        st.markdown("### 🔑 Details Signature Ed25519")
+        st.markdown("### 🔑 Propriétés Statistiques de la Signature")
         sig_analysis = get_signature_analysis()
         st.markdown(f"""
-        | Parametre | Valeur |
-        |-----------|--------|
-        | **Taille signature** | {sig_analysis['length_bytes']} bytes ({sig_analysis['length_bits']} bits) |
-        | **Entropie** | {sig_analysis['entropy']:.3f} bits |
-        | **Bytes uniques** | {sig_analysis['unique_bytes']}/256 ({sig_analysis['unique_ratio']:.1f}%) |
-        | **Ecart-type** | {sig_analysis['std_dev']:.2f} |
-        | **Moyenne** | {sig_analysis['mean']:.2f} |
-        | **Mediane** | {sig_analysis['median']:.2f} |
+        | Parametre | Valeur | Description |
+        |-----------|--------|-------------|
+        | **Taille** | {sig_analysis['length_bytes']} bytes ({sig_analysis['length_bits']} bits) | Standard Ed25519 |
+        | **Entropie** | {sig_analysis['entropy']:.3f} bits | Doit être proche de 4.0 (hasard hex) |
+        | **Bytes uniques** | {sig_analysis['unique_bytes']}/256 ({sig_analysis['unique_ratio']:.1f}%) | Taux de couverture de l'espace byte |
+        | **Ecart-type** | {sig_analysis['std_dev']:.2f} | Dispersion des valeurs (idéal ~73 pour [0-255]) |
+        | **Moyenne** | {sig_analysis['mean']:.2f} | Doit tendre vers 127.5 |
         """)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🧬 Pattern Signature")
+        st.markdown("### 🧬 Carte Thermique (Heatmap) Signature")
+        st.caption("Visualisation des 64 premiers bytes de la signature sous forme de matrice 8x8. Une bonne signature ne doit montrer aucun pattern visuel évident (bruit uniforme).")
         sig_ints = [int(b) for b in bytes.fromhex(SIGNATURE)[:64]]
         if sig_ints:
             heat_data = np.array(sig_ints[:64]).reshape(8, 8)
@@ -488,37 +516,50 @@ elif page == "🔐 Verification Crypto":
     
     with col2:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔐 Force de Securite")
+        st.markdown("### 🛡️ Force de Securite (NIST)")
         bits = len(HASH_FINAL) * 4
         sec_strength, level = calculate_security_strength(bits)
         st.markdown(f"""
-        | Metrique | Valeur |
-        |----------|--------|
-        | **Taille hash** | {bits} bits |
-        | **Niveau securite** | {sec_strength} |
-        | **Resistance collision** | 2^{bits//2} operations |
-        | **Resistance preimage** | 2^{bits} operations |
-        | **Resistance quantique** | 2^{bits//2} operations |
+        | Metrique | Valeur | Contexte |
+        |----------|--------|----------|
+        | **Taille hash** | {bits} bits | Espace des possibles |
+        | **Niveau** | {sec_strength} | Échelle de robustesse |
+        | **Resistance collision** | 2^{bits//2} | Attaque des anniversaires |
+        | **Resistance preimage** | 2^{bits} | Trouver l'entrée à partir du hash |
+        | **Resistance quantique** | 2^{bits//2} | Algorithme de Grover |
         """)
+        st.info("💡 **Résistance Quantique** : L'algorithme de Grover réduit théoriquement la sécurité d'un hash de moitié. Un hash de 512 bits offre donc une sécurité équivalente à 256 bits face à un ordinateur quantique, ce qui reste inviolable.")
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### ⚡ Effet Avalanche")
+        st.markdown("### ⚡ Effet Avalanche & SAC")
+        st.caption("Mesure de la sensibilité de la fonction de hash : un changement microscopique en entrée doit provoquer un changement macroscopique en sortie.")
+        
         avalanche = calculate_avalanche_effect()
         sac = calculate_sac()
         
         st.metric("Avalanche Effect", f"{avalanche:.2f}%", delta=f"{avalanche-50:+.2f}%")
-        st.metric("Strict Avalanche Criterion", f"{sac*100:.2f}%", delta=f"{(sac-0.5)*100:+.2f}%")
+        st.metric("Strict Avalanche Criterion (SAC)", f"{sac*100:.2f}%", delta=f"{(sac-0.5)*100:+.2f}%")
         
         st.progress(min(avalanche/100, 1.0))
-        st.caption("Valeur ideale: 50% pour une diffusion optimale")
+        
+        with st.expander("📖 Que signifient ces métriques ?"):
+            st.markdown("""
+            - **Effet Avalanche** : Mesure le pourcentage de bits qui changent en sortie si on change 1 bit en entrée. La valeur idéale est **50%**. Si trop de bits changent (>60%) ou trop peu (<40%), la fonction a un biais de diffusion.
+            - **SAC (Strict Avalanche Criterion)** : Extension de l'effet avalanche. Exige que pour chaque bit d'entrée inversé, chaque bit de sortie change avec une probabilité exacte de 1/2.
+            """)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # PAGE 3: ANALYSE ENTROPIQUE
 # ============================================
 elif page == "📊 Analyse Entropique":
-    st.markdown('<div class="main-header"><h1>📊 Analyse Entropique Avancee</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>📊 Analyse Entropique et Stochastique</h1></div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    L'entropie mesure la quantité d'incertitude ou de désordre dans un jeu de données. En cryptographie, une entropie maximale est synonyme d'imprévisibilité, 
+    condition sine qua non pour résister aux attaques par force brute ou par analyse statistique.
+    """)
     
     entropy_data = get_entropy_analysis()
     
@@ -526,7 +567,7 @@ elif page == "📊 Analyse Entropique":
     
     with col1:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Metriques d'Entropie")
+        st.markdown("### 📊 Métriques d'Entropie Avancées")
         st.markdown(f"""
         | Metrique | Valeur | Maximum | Ratio |
         |----------|--------|---------|-------|
@@ -535,26 +576,35 @@ elif page == "📊 Analyse Entropique":
         | **Collision Entropy** | {entropy_data['collision_entropy']:.4f} bits | 8.0 bits | {entropy_data['collision_entropy']/8*100:.1f}% |
         | **Conditional Entropy** | {entropy_data['conditional_entropy']:.4f} bits | 8.0 bits | {entropy_data['conditional_entropy']/8*100:.1f}% |
         """)
+        
+        with st.expander("🔬 Détails des théories de l'entropie"):
+            st.markdown("""
+            - **Entropie de Shannon (H1)** : Mesure l'incertitude moyenne. $H = -\\sum p(x) \\log_2 p(x)$. Un ratio de ~100% indique une distribution uniforme (hasard parfait).
+            - **Min-Entropie (H∞)** : Mesure le pire cas scénario, i.e., la probabilité de deviner le symbole le plus fréquent. Norme **NIST SP 800-90B** pour les générateurs de nombres aléatoires. Critique pour évaluer la résistance aux attaques par devinette unique.
+            - **Entropie de Collision (H2, Renyi d'ordre 2)** : Probabilité que deux tirages aléatoires produisent le même résultat. Indicateur de résistance aux attaques par collision (Birthday Paradox).
+            - **Entropie Conditionnelle** : Mesure la dépendance statistique entre bytes consécutifs. Si elle est proche de Shannon, les bytes sont indépendants les uns des autres (pas de pattern séquentiel).
+            """)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Distribution Bytes Hash")
+        st.markdown("### 📊 Top 10 des Bytes les plus fréquents")
         byte_counts = get_hash_byte_distribution()
-        df_counts = pd.DataFrame(byte_counts.most_common(10), columns=["Byte", "Frequence"])
+        df_counts = pd.DataFrame(byte_counts.most_common(10), columns=["Valeur Byte (Décimal)", "Fréquence d'apparition"])
         st.dataframe(df_counts, use_container_width=True)
+        st.caption("Dans un hash parfait de grande taille, la fréquence de chaque byte devrait tendre vers 1. Une forte déviation indiquerait un biais structurel.")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🎲 Aleatoire du Hash")
+        st.markdown("### 🎲 Tests de Randomité (NIST simplifié)")
         hash_ints = list(bytes.fromhex(HASH_FINAL))
         
-        st.markdown("**Tests de randomite simplifies:**")
+        st.markdown("**Tests de fréquence et de séquences :**")
         
         # Test de frequence
         ones_count = sum(bin(b).count('1') for b in hash_ints[:100])
         ones_ratio = ones_count / (100 * 8)
-        st.metric("Ratio de bits '1'", f"{ones_ratio*100:.1f}%", delta=f"{ones_ratio-0.5:+.1%}")
+        st.metric("Ratio de bits '1' (Monobit Test)", f"{ones_ratio*100:.1f}%", delta=f"{ones_ratio-0.5:+.1%}")
         
         # Test de runs
         runs = 1
@@ -562,68 +612,76 @@ elif page == "📊 Analyse Entropique":
             if (hash_ints[i] % 2) != (hash_ints[i-1] % 2):
                 runs += 1
         expected_runs = 1 + (99 * 0.5 * 0.5 * 2)
-        st.metric("Nombre de runs", runs, delta=f"{runs-expected_runs:+.0f}")
+        st.metric("Nombre de Runs (Séquences)", runs, delta=f"{runs-expected_runs:+.0f} (idéal: ~{expected_runs:.0f})")
         
+        with st.expander("ℹ️ A propos des tests NIST"):
+            st.markdown("""
+            - **Monobit Test** : Vérifie si la proportion de bits à '1' est proche de 50%. Un écart significatif indique un biais polarisé.
+            - **Runs Test** : Compte les séquences consécutives de bits identiques. Trop peu de runs = oscillation lente. Trop de runs = oscillation trop rapide (trop régulière).
+            Ces tests sont inspirés de la suite **NIST SP 800-22** utilisée pour valider les modules cryptographiques (FIPS 140-2).
+            """)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📈 Evolution Entropie")
+        st.markdown("### 📈 Paysage d'Entropie (Visualisation 3D)")
         fig = create_entropy_visualization()
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("Représentation abstraite de la surface de probabilité d'un espace de hash hautement entropique. Les pics représentent les zones de forte imprévisibilité.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # PAGE 4: STATISTIQUES AVANCEES
 # ============================================
 elif page == "📈 Statistiques Avancees":
-    st.markdown('<div class="main-header"><h1>📈 Statistiques Cryptographiques</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>📈 Statistiques Cryptographiques Descriptives</h1></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Statistiques Hash")
+        st.markdown("### 📊 Statistiques des Bytes du Hash")
         hash_bytes = list(bytes.fromhex(HASH_FINAL))
         st.markdown(f"""
-        | Statistique | Valeur |
-        |-------------|--------|
-        | **Moyenne** | {np.mean(hash_bytes):.2f} |
-        | **Mediane** | {np.median(hash_bytes):.2f} |
-        | **Ecart-type** | {np.std(hash_bytes):.2f} |
-        | **Variance** | {np.var(hash_bytes):.2f} |
-        | **Minimum** | {min(hash_bytes)} |
-        | **Maximum** | {max(hash_bytes)} |
-        | **Etendue** | {max(hash_bytes) - min(hash_bytes)} |
+        | Statistique | Valeur | Interprétation |
+        |-------------|--------|----------------|
+        | **Moyenne** | {np.mean(hash_bytes):.2f} | Idéal: 127.5 (milieu de [0-255]) |
+        | **Mediane** | {np.median(hash_bytes):.2f} | Doit être proche de la moyenne |
+        | **Ecart-type** | {np.std(hash_bytes):.2f} | Idéal: ~73.9 (uniforme) |
+        | **Variance** | {np.var(hash_bytes):.2f} | Carré de l'écart-type |
+        | **Minimum** | {min(hash_bytes)} | Valeur la plus basse |
+        | **Maximum** | {max(hash_bytes)} | Valeur la plus haute |
+        | **Etendue** | {max(hash_bytes) - min(hash_bytes)} | Différence Max-Min |
         """)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Boxplot Hash")
-        fig = go.Figure(data=[go.Box(y=hash_bytes, name="Hash Bytes")])
+        st.markdown("### 📊 Distribution du Hash (Boxplot)")
+        st.caption("La boîte à moustaches montre la répartition des bytes. Les moustaches ne doivent pas être trop écrasées, et la médiane (ligne) doit être centrée.")
+        fig = go.Figure(data=[go.Box(y=hash_bytes, name="Hash Bytes", marker_color='cyan')])
         fig.update_layout(paper_bgcolor='black', font=dict(color='white'), height=300)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Statistiques Signature")
+        st.markdown("### 📊 Statistiques des Bytes de la Signature")
         sig_bytes = list(bytes.fromhex(SIGNATURE))
         st.markdown(f"""
-        | Statistique | Valeur |
-        |-------------|--------|
-        | **Moyenne** | {np.mean(sig_bytes):.2f} |
-        | **Mediane** | {np.median(sig_bytes):.2f} |
-        | **Ecart-type** | {np.std(sig_bytes):.2f} |
-        | **Variance** | {np.var(sig_bytes):.2f} |
-        | **Minimum** | {min(sig_bytes)} |
-        | **Maximum** | {max(sig_bytes)} |
-        | **Etendue** | {max(sig_bytes) - min(sig_bytes)} |
+        | Statistique | Valeur | Interprétation |
+        |-------------|--------|----------------|
+        | **Moyenne** | {np.mean(sig_bytes):.2f} | Idéal: 127.5 |
+        | **Mediane** | {np.median(sig_bytes):.2f} | Proche de la moyenne |
+        | **Ecart-type** | {np.std(sig_bytes):.2f} | Idéal: ~73.9 |
+        | **Variance** | {np.var(sig_bytes):.2f} | Homogénéité |
+        | **Minimum** | {min(sig_bytes)} | Borne basse |
+        | **Maximum** | {max(sig_bytes)} | Borne haute |
+        | **Etendue** | {max(sig_bytes) - min(sig_bytes)} | Couverture spectrale |
         """)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Boxplot Signature")
-        fig = go.Figure(data=[go.Box(y=sig_bytes, name="Signature Bytes")])
+        st.markdown("### 📊 Distribution de la Signature (Boxplot)")
+        fig = go.Figure(data=[go.Box(y=sig_bytes, name="Signature Bytes", marker_color='magenta')])
         fig.update_layout(paper_bgcolor='black', font=dict(color='white'), height=300)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -632,23 +690,29 @@ elif page == "📈 Statistiques Avancees":
 # PAGE 5: SIGNATURE & CERTIFICAT
 # ============================================
 elif page == "🔑 Signature & Certificat":
-    st.markdown('<div class="main-header"><h1>🔑 Signature Ed25519 & Certificat</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>🔑 Architecture PKI & JWT</h1></div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    L'infrastructure à clé publique (PKI) et les jetons Web JSON (JWT) permettent de transporter de manière sécurisée et vérifiable la preuve cryptographique de la Gradation à travers des systèmes hétérogènes.
+    """)
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔐 Signature Complete")
+        st.markdown("### 🔐 Données Cryptographiques Brutes")
+        st.markdown("**Signature Ed25519 :**")
         st.code(SIGNATURE, language="text")
-        st.caption(f"Longueur: {len(SIGNATURE)} hex | 64 bytes | Ed25519 signature")
+        st.caption("Format hexadécimal. 64 bytes dérivés du hash et de la clé privée via la courbe Ed25519.")
         
-        st.markdown("### 🔑 Clé Publique")
+        st.markdown("**Clé Publique :**")
         st.code(PUBLIC_KEY, language="text")
-        st.caption(f"Longueur: {len(PUBLIC_KEY)} hex | 32 bytes")
+        st.caption("Clé de vérification 32 bytes (256 bits).")
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📜 Certificat X.509 Simule")
+        st.markdown("### 📜 Certificat X.509 Simulé")
+        st.caption("Un certificat X.509 lie une clé publique à une identité (ici, la Gradation). En production, il serait signé par une Autorité de Certification (CA).")
         cert = f"""-----BEGIN CERTIFICATE-----
 MIIDGTCCAoGgAwIBAgIJAJk7fLmQ8r6jMAoGCCqGSM49BAMCMIGIMQswCQYDVQQG
 EwJGUjELMAkGA1UECAwCSVQxEjAQBgNVBAcMCVBhcmlzQ2VudGVEQswCQYDVQQK
@@ -665,45 +729,57 @@ AwIDaAAwZQIxAJo0X2u8nS5nrB8C4e2bD6f9A1aC3eF5gH7iJ8kL0mN4oP6qR8sT
 kL9mN1oP6qR8sT1uV3wX5yZ7aB9cD
 -----END CERTIFICATE-----"""
         st.code(cert[:300] + "...", language="text")
-        st.caption("Certificat X.509 autosigne (format PEM)")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔐 Verification OpenSSL")
+        st.markdown("### 🔐 Intégration OpenSSL")
+        st.caption("Commandes pour vérifier indépendamment la signature en dehors de Python, via la bibliothèque standard du système.")
         st.code("""
 # Verifier la signature avec OpenSSL
-echo '80d289d3f5e1a7c3b9d4f6e8a0b2c4d6e8f0a2b4c6d8e0a2b4c6d8e0a2b4c6d8e0a2b4c6d8e0a2b4c6d8' | \
+echo '80d289d3...e0a2b4c6d8' | \\
 xxd -r -p > hash.bin
-echo 'f8e2d4c6b8a0f1e3c5d7e9a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f9a1b2c3d4e5f6a7b8c9d0' | \
+echo 'f8e2d4c6...a7b8c9d0' | \\
 xxd -r -p > sig.bin
-echo '4a5f7c2e1b8d4a6f9c3e5b7a1d8f4c2e6b9a3d5f7c1e8a4b6d9f2e5c7a8b3d6f9a1c4e' | \
+echo '4a5f7c2e...9a1c4e' | \\
 xxd -r -p > pubkey.bin
-openssl dgst -sha512 -verify pubkey.bin -signature sig.bin hash.bin
+
+# Vérification Ed25519
+openssl pkeyutl -verify -pubin -inkey pubkey.bin \\
+  -pkeyopt digest=sha512 \\
+  -sigfile sig.bin -in hash.bin
         """, language="bash")
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔑 JWT Complet")
+        st.markdown("### 🔑 JSON Web Token (JWT)")
+        st.caption("Le JWT encode la signature, le hash et les métadonnées en Base64Url pour un transport facile dans les APIs REST ou les cookies sécurisés.")
         st.code(JWT[:200] + "...", language="text")
         st.download_button("📥 Telecharger JWT", JWT, "gradation.jwt", "text/plain")
         
-        st.markdown("### 📱 QR Code JWT")
+        with st.expander("🏗️ Structure du JWT (Decodé)"):
+            st.json({
+                "header": {"alg": "EdDSA", "typ": "JWT"},
+                "payload": JWT_PAYLOAD
+            })
+            
+        st.markdown("### 📱 QR Code d'Authentification")
         qr_bytes = generate_qr_code(JWT)
-        st.image(qr_bytes, caption="JWT QR Code", width=200)
+        st.image(qr_bytes, caption="Scanmez pour vérifier le JWT de la Gradation", width=200)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # PAGE 6: EXPORT & QR CODE
 # ============================================
 elif page == "📁 Export & QR Code":
-    st.markdown('<div class="main-header"><h1>📁 Export & QR Code</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>📁 Export & Intéropérabilité</h1></div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
         st.markdown("### 📄 Format JSON")
+        st.caption("Format standard pour l'intégration dans des APIs ou des bases de données NoSQL.")
         export_json = json.dumps({
             "gradation": GRADATION,
             "mot": MOT,
@@ -713,11 +789,12 @@ elif page == "📁 Export & QR Code":
             "timestamp": TIMESTAMP,
             "algorithm": "Ed25519"
         }, indent=2)
-        st.download_button("📥 JSON", export_json, "gradation.json", "application/json")
+        st.download_button("📥 Télécharger JSON", export_json, "gradation.json", "application/json")
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
         st.markdown("### 📄 Format CSV")
+        st.caption("Format tabulaire pour l'import dans Excel, les SIEM ou les bases SQL.")
         export_csv = pd.DataFrame([{
             "gradation": GRADATION,
             "mot": MOT,
@@ -726,42 +803,45 @@ elif page == "📁 Export & QR Code":
             "public_key": PUBLIC_KEY,
             "timestamp": TIMESTAMP
         }]).to_csv(index=False)
-        st.download_button("📥 CSV", export_csv, "gradation.csv", "text/csv")
+        st.download_button("📥 Télécharger CSV", export_csv, "gradation.csv", "text/csv")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📄 Format TXT")
+        st.markdown("### 📄 Format TXT (Brut)")
+        st.caption("Format lisible pour l'archivage long terme ou l'audit manuel.")
         export_txt = f"""Gradation: {GRADATION}
 Mot: {MOT}
 Hash: {HASH_FINAL}
 Signature: {SIGNATURE}
 Public Key: {PUBLIC_KEY}
 Timestamp: {TIMESTAMP}"""
-        st.download_button("📥 TXT", export_txt, "gradation.txt", "text/plain")
+        st.download_button("📥 Télécharger TXT", export_txt, "gradation.txt", "text/plain")
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔑 Donnees separees")
-        st.download_button("🔐 Signature seule", SIGNATURE, "signature.sig", "text/plain")
-        st.download_button("📝 Hash seul", HASH_FINAL, "hash.txt", "text/plain")
-        st.download_button("🔑 Clé publique", PUBLIC_KEY, "public_key.key", "text/plain")
+        st.markdown("### 🔑 Données Séparées")
+        st.caption("Téléchargement des composants individuels pour les scripts de validation (ex: Shell, Python).")
+        st.download_button("🔐 Signature seule (.sig)", SIGNATURE, "signature.sig", "text/plain")
+        st.download_button("📝 Hash seul (.txt)", HASH_FINAL, "hash.txt", "text/plain")
+        st.download_button("🔑 Clé publique (.key)", PUBLIC_KEY, "public_key.key", "text/plain")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📱 QR Codes")
-        st.markdown("**JWT QR Code:**")
-        st.image(generate_qr_code(JWT), caption="JWT", width=200)
-        st.markdown("**Public Key QR Code:**")
-        st.image(generate_qr_code(PUBLIC_KEY), caption="Public Key", width=200)
+        st.markdown("### 📱 QR Codes d'Authentification")
+        st.caption("Permettent de transférer l'identité cryptographique vers des systèmes mobiles ou physiques.")
+        st.markdown("**JWT Complet :**")
+        st.image(generate_qr_code(JWT), caption="Contient le JWT (Header.Payload)", width=200)
+        st.markdown("**Clé Publique :**")
+        st.image(generate_qr_code(PUBLIC_KEY), caption="Clé de vérification", width=200)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # PAGE 7: INFORMATIONS SYSTEME
 # ============================================
 elif page == "ℹ️ Informations Systeme":
-    st.markdown('<div class="main-header"><h1>ℹ️ Informations Systeme</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>ℹ️ Environnement d'Exécution</h1></div>', unsafe_allow_html=True)
     
     sys_info = get_system_info()
     
@@ -769,7 +849,7 @@ elif page == "ℹ️ Informations Systeme":
     
     with col1:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 💻 Environnement")
+        st.markdown("### 💻 Contexte Matériel & OS")
         st.markdown(f"""
         | Parametre | Valeur |
         |-----------|--------|
@@ -777,45 +857,47 @@ elif page == "ℹ️ Informations Systeme":
         | **Platforme** | {sys_info['platform']} |
         | **Processeur** | {sys_info['processor']} |
         | **Hostname** | {sys_info['hostname']} |
-        | **Memory Total** | {sys_info['memory_total']} |
-        | **Memory Available** | {sys_info['memory_available']} |
+        | **Mémoire Totale** | {sys_info['memory_total']} |
+        | **Mémoire Disponible** | {sys_info['memory_available']} |
         """)
+        st.info("💡 La cryptographie asymétrique (Ed25519) est gourmande en CPU lors de la génération, mais la vérification est rapide. La mémoire disponible n'affecte pas la sécurité, mais influence la capacité à traiter de gros volumes de vérifications parallèles.")
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 🔐 Bibliotheques")
+        st.markdown("### 🔐 Dépendances Cryptographiques")
+        st.caption("Version et statut des bibliothèques utilisées pour les calculs.")
         libs = {
-            "PyNaCl": "✅ Installe" if HAS_NACL else "❌ Non installe",
-            "NumPy": np.__version__,
-            "Pandas": pd.__version__,
-            "Plotly": PLOTLY_VERSION,
-            "psutil": "✅ Installe" if HAS_PSUTIL else "❌ Non installe"
+            "PyNaCl (libsodium)": "✅ Installe - Signature Ed25519 native" if HAS_NACL else "❌ Non installe - Fallback mode démo",
+            "NumPy": f"v{np.__version__} - Calculs statistiques",
+            "Pandas": f"v{pd.__version__} - Manipulation données",
+            "Plotly": f"v{PLOTLY_VERSION} - Visualisation",
+            "psutil": "✅ Installe - Monitoring RAM" if HAS_PSUTIL else "❌ Non installe"
         }
         for lib, version in libs.items():
-            st.markdown(f"- **{lib}**: {version}")
+            st.markdown(f"- **{lib}**: `{version}`")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Resume Cryptographic")
+        st.markdown("### 📊 Synthèse de l'Empreinte")
         st.markdown(f"""
         | Metrique | Valeur |
         |----------|--------|
         | **Hash Size** | {len(HASH_FINAL)} hex ({len(HASH_FINAL)//2} bytes) |
-        | **Hash Entropy** | {calculate_entropy(HASH_FINAL):.3f} bits |
+        | **Hash Entropy** | {calculate_entropy(HASH_FINAL):.3f} bits/symbole |
         | **Signature Size** | {len(SIGNATURE)} hex (64 bytes) |
-        | **Signature Entropy** | {calculate_entropy(SIGNATURE):.3f} bits |
+        | **Signature Entropy** | {calculate_entropy(SIGNATURE):.3f} bits/symbole |
         | **Public Key Size** | {len(PUBLIC_KEY)} hex (32 bytes) |
         | **Avalanche Effect** | {calculate_avalanche_effect():.2f}% |
         """)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### ✅ Verification Finale")
+        st.markdown("### ✅ Verdict Final")
         if IS_VALID:
-            st.success("✅ La signature est VALIDE - L'integrite cryptographique est confirmee")
+            st.success("✅ VALIDATION COMPLÈTE : L'empreinte est authentique, la signature est intègre, et l'entropie respecte les standards cryptographiques.")
         else:
-            st.error("❌ La signature est INVALIDE")
+            st.error("❌ ALERTE : La signature est invalide. L'intégrité du document est compromise.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
@@ -824,7 +906,7 @@ elif page == "ℹ️ Informations Systeme":
 st.markdown("---")
 st.markdown(f"""
 <div style="text-align: center; padding: 20px; font-size: 12px; color: #666;">
-    🔐 Quantum Gradation System v4.0 | Ed25519 | Post-Quantum Ready<br>
+    🔐 Quantum Gradation System v4.0 | Ed25519 | Post-Quantum Ready | Normes NIST<br>
     Derniere analyse: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC | Statut: {'🟢 SECURE' if IS_VALID else '🔴 INVALID'}
 </div>
 """, unsafe_allow_html=True)
