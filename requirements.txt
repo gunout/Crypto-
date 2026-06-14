@@ -1,0 +1,6 @@
+streamlit 
+nacl 
+qrcode 
+pillow 
+pandas 
+plotly
