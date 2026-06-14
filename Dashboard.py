@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import base64
 import hashlib
+import sqlite3
 from datetime import datetime
 import qrcode
 from io import BytesIO
@@ -10,13 +11,12 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import math
-
-# Verification de pynacl
-try:
-    import nacl.signing
-    HAS_NACL = True
-except ImportError:
-    HAS_NACL = False
+import os
+import tempfile
+from streamlit_extras.toast import toast
+import csv
+import xml.etree.ElementTree as ET
+import yaml
 
 # ============================================
 # CONFIGURATION
@@ -25,8 +25,236 @@ st.set_page_config(
     page_title="Quantum Gradation BOURSE",
     page_icon="🔐",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/yourrepo',
+        'Report a bug': 'https://github.com/yourrepo/issues',
+        'About': '# Quantum Gradation System v2.0\n## Ameliorations:\n- Export multi-format\n- Notifications\n- Base de donnees\n- Mode hors ligne'
+    }
 )
+
+# Style CSS
+st.markdown("""
+<style>
+    .stMetric {
+        transition: all 0.3s ease;
+    }
+    .stMetric:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,255,204,0.2);
+    }
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #00ffcc, #ff00ff);
+    }
+    .stButton button {
+        background: linear-gradient(135deg, #00ffcc, #ff00ff);
+        color: white;
+        border: none;
+        transition: all 0.3s;
+    }
+    .stButton button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 0 20px rgba(0,255,204,0.5);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================
+# BASE DE DONNEES (PERSISTANCE)
+# ============================================
+
+def init_db():
+    """Initialise la base de donnees SQLite"""
+    conn = sqlite3.connect('verifications.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS verifications
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  timestamp TEXT,
+                  gradation TEXT,
+                  hash TEXT,
+                  signature TEXT,
+                  public_key TEXT,
+                  status TEXT,
+                  entropy REAL)''')
+    conn.commit()
+    conn.close()
+
+def save_verification(status, entropy):
+    """Sauvegarde une verification dans la base"""
+    conn = sqlite3.connect('verifications.db')
+    c = conn.cursor()
+    c.execute("""INSERT INTO verifications 
+                 (timestamp, gradation, hash, signature, public_key, status, entropy) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?)""",
+              (datetime.now().isoformat(), GRADATION, HASH_FINAL[:32], 
+               SIGNATURE[:32], PUBLIC_KEY[:32], status, entropy))
+    conn.commit()
+    conn.close()
+
+def get_verification_history():
+    """Recupere l'historique des verifications"""
+    conn = sqlite3.connect('verifications.db')
+    df = pd.read_sql_query("SELECT * FROM verifications ORDER BY id DESC LIMIT 50", conn)
+    conn.close()
+    return df
+
+def get_statistics():
+    """Recupere les statistiques depuis la base"""
+    conn = sqlite3.connect('verifications.db')
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM verifications")
+    total = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM verifications WHERE status = 'VALID'")
+    valid = c.fetchone()[0]
+    conn.close()
+    return total, valid
+
+# ============================================
+# EXPORT MULTI-FORMAT
+# ============================================
+
+def export_json():
+    """Export en format JSON"""
+    data = {
+        "gradation": GRADATION,
+        "mot": MOT,
+        "hash": HASH_FINAL,
+        "signature": SIGNATURE,
+        "public_key": PUBLIC_KEY,
+        "timestamp": TIMESTAMP,
+        "entropy": calculate_entropy(HASH_FINAL)
+    }
+    return json.dumps(data, indent=2)
+
+def export_csv():
+    """Export en format CSV"""
+    data = [{
+        "gradation": GRADATION,
+        "mot": MOT,
+        "hash": HASH_FINAL,
+        "signature": SIGNATURE,
+        "public_key": PUBLIC_KEY,
+        "timestamp": TIMESTAMP
+    }]
+    return pd.DataFrame(data).to_csv(index=False)
+
+def export_xml():
+    """Export en format XML"""
+    root = ET.Element("quantum_gradation")
+    ET.SubElement(root, "gradation").text = GRADATION
+    ET.SubElement(root, "mot").text = MOT
+    ET.SubElement(root, "hash").text = HASH_FINAL
+    ET.SubElement(root, "signature").text = SIGNATURE
+    ET.SubElement(root, "public_key").text = PUBLIC_KEY
+    ET.SubElement(root, "timestamp").text = TIMESTAMP
+    return ET.tostring(root, encoding='unicode')
+
+def export_yaml():
+    """Export en format YAML"""
+    data = {
+        "gradation": GRADATION,
+        "mot": MOT,
+        "hash": HASH_FINAL,
+        "signature": SIGNATURE,
+        "public_key": PUBLIC_KEY,
+        "timestamp": TIMESTAMP
+    }
+    return yaml.dump(data, default_flow_style=False)
+
+def export_html():
+    """Export en format HTML"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head><title>Quantum Gradation {GRADATION}</title></head>
+    <body>
+        <h1>Quantum Gradation Report</h1>
+        <p><strong>Gradation:</strong> {GRADATION}</p>
+        <p><strong>Mot:</strong> {MOT}</p>
+        <p><strong>Hash:</strong> {HASH_FINAL}</p>
+        <p><strong>Signature:</strong> {SIGNATURE}</p>
+        <p><strong>Public Key:</strong> {PUBLIC_KEY}</p>
+        <p><strong>Timestamp:</strong> {TIMESTAMP}</p>
+    </body>
+    </html>
+    """
+
+# ============================================
+# NOTIFICATIONS
+# ============================================
+
+def show_notification(message, type="info"):
+    """Affiche une notification"""
+    if type == "success":
+        toast(message, icon="✅")
+    elif type == "error":
+        toast(message, icon="❌")
+    elif type == "warning":
+        toast(message, icon="⚠️")
+    else:
+        toast(message, icon="🔔")
+
+def notify_signature_status(is_valid):
+    """Notifie le statut de la signature"""
+    if is_valid:
+        show_notification("✅ Signature valide! Verification cryptographique reussie.", "success")
+    else:
+        show_notification("❌ Signature invalide! Veuillez verifier les donnees.", "error")
+
+# ============================================
+# MODE HORS LIGNE (PWA)
+# ============================================
+
+def add_pwa_support():
+    """Ajoute le support PWA pour le mode hors ligne"""
+    pwa_html = """
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.log('Service Worker registered');
+        }).catch(function(err) {
+            console.log('Service Worker registration failed:', err);
+        });
+    }
+    </script>
+    """
+    st.components.v1.html(pwa_html, height=0)
+
+def create_service_worker():
+    """Cree le fichier service worker pour le mode hors ligne"""
+    sw_content = """
+    const CACHE_NAME = 'quantum-gradation-v1';
+    const urlsToCache = [
+        '/',
+        '/index.html',
+        '/manifest.json'
+    ];
+
+    self.addEventListener('install', event => {
+        event.waitUntil(
+            caches.open(CACHE_NAME)
+                .then(cache => cache.addAll(urlsToCache))
+        );
+    });
+
+    self.addEventListener('fetch', event => {
+        event.respondWith(
+            caches.match(event.request)
+                .then(response => response || fetch(event.request))
+        );
+    });
+    """
+    with open('sw.js', 'w') as f:
+        f.write(sw_content)
+
+# ============================================
+# VERIFICATION DE PNACL
+# ============================================
+try:
+    import nacl.signing
+    HAS_NACL = True
+except ImportError:
+    HAS_NACL = False
 
 # ============================================
 # DONNEES PRINCIPALES
@@ -65,6 +293,12 @@ JWT_PAYLOAD = {
 }
 JWT_B64 = base64.b64encode(json.dumps(JWT_PAYLOAD).encode()).decode()
 JWT = f"eyJhbGciOiJFZERTQSJ9.{JWT_B64}"
+
+# Initialisation de la base
+init_db()
+
+# Ajout PWA
+add_pwa_support()
 
 # ============================================
 # FONCTIONS
@@ -138,20 +372,12 @@ def create_quantum_visualization():
     )
     return fig
 
-def generate_quantum_timeline():
-    events = [
-        {"epoch": "Past", "event": "Creation de la gradation", "probability": 1.0},
-        {"epoch": "Present", "event": "Signature quantique", "probability": 1.0},
-        {"epoch": "Future", "event": "Resistance post-quantique", "probability": 0.97},
-    ]
-    return pd.DataFrame(events)
-
 # ============================================
 # SIDEBAR
 # ============================================
 with st.sidebar:
     st.markdown("### Quantum Navigation")
-    page = st.radio("", ["Core", "Verification", "Entropy", "Vault", "Future"])
+    page = st.radio("", ["Core", "Verification", "Entropy", "Vault", "History", "Export"])
     
     st.markdown("---")
     st.markdown("### Quantum Metrics")
@@ -166,8 +392,12 @@ with st.sidebar:
     quantum_ent = quantum_entropy_analysis(HASH_FINAL)
     st.metric("Quantum Entropy", f"{quantum_ent['quantum_entropy']:.2f}")
     
-    collision_prob = 1 / (2 ** (len(HASH_FINAL) * 2)) if (2 ** (len(HASH_FINAL) * 2)) > 0 else 0
-    st.metric("Collision Risk", f"{collision_prob:.2e}")
+    # Statistiques DB
+    total, valid = get_statistics()
+    st.metric("Historique", f"{total} verifications")
+    
+    # Notification de statut
+    notify_signature_status(is_valid)
 
 # ============================================
 # PAGE CORE
@@ -230,8 +460,11 @@ elif page == "Verification":
             is_valid, msg = verify_signature()
             if is_valid:
                 st.success(f"✅ VERIFIED - {msg}")
+                entropy_val = calculate_entropy(HASH_FINAL)
+                save_verification("VALID", entropy_val)
             else:
                 st.error(f"❌ FAILED - {msg}")
+                save_verification("INVALID", 0)
         
         with st.container():
             st.markdown("#### Signature Analysis")
@@ -302,7 +535,6 @@ elif page == "Entropy":
         with st.container():
             st.markdown("#### Byte Distribution")
             hash_bytes_val = bytes.fromhex(HASH_FINAL)
-            # Convertir bytes en liste d'entiers pour bincount
             hash_int_list = list(hash_bytes_val)
             if hash_int_list:
                 byte_counts = np.bincount(hash_int_list, minlength=256)
@@ -370,62 +602,77 @@ Public Key: {PUBLIC_KEY[:32]}...
             st.download_button("Hash", HASH_FINAL, "quantum_hash.hash")
 
 # ============================================
-# PAGE FUTURE
+# PAGE HISTORY
 # ============================================
-elif page == "Future":
-    st.markdown("## FUTURECAST PREDICTIONS")
+elif page == "History":
+    st.markdown("## HISTORIQUE DES VERIFICATIONS")
     
-    col1, col2 = st.columns(2)
+    df = get_verification_history()
+    if not df.empty:
+        st.dataframe(df, use_container_width=True)
+        
+        # Graphique des tendances
+        df['timestamp_dt'] = pd.to_datetime(df['timestamp'])
+        df['date'] = df['timestamp_dt'].dt.date
+        daily_stats = df.groupby('date').size().reset_index(name='count')
+        
+        fig = px.line(daily_stats, x='date', y='count', title='Tendances des verifications')
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#00ffcc'))
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Aucune verification enregistree pour le moment")
+
+# ============================================
+# PAGE EXPORT
+# ============================================
+elif page == "Export":
+    st.markdown("## EXPORT MULTI-FORMAT")
+    
+    st.info("📁 Exportez les donnees de la gradation dans differents formats")
+    
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        with st.container():
-            st.markdown("#### Quantum Timeline")
-            timeline_df = generate_quantum_timeline()
-            st.dataframe(timeline_df, use_container_width=True)
+        st.markdown("#### JSON")
+        json_data = export_json()
+        st.download_button("📄 JSON", json_data, "gradation.json", "application/json")
         
-        with st.container():
-            st.markdown("#### Post-Quantum Predictions")
-            years = list(range(2026, 2126, 20))
-            security = [0.9999, 0.999, 0.99, 0.97, 0.95]
-            
-            fig = go.Figure(data=[go.Scatter(x=years[:5], y=security, mode='lines+markers', line=dict(color='cyan'))])
-            fig.update_layout(
-                title="Security vs Time",
-                yaxis_tickformat=".0%",
-                paper_bgcolor='rgba(0,0,0,0)',
-                height=300
-            )
-            st.plotly_chart(fig, use_container_width=True)
+        st.markdown("#### CSV")
+        csv_data = export_csv()
+        st.download_button("📊 CSV", csv_data, "gradation.csv", "text/csv")
     
     with col2:
-        with st.container():
-            st.markdown("#### Neural Predictions")
-            predictions = [
-                "2030: Quantum resistance confirmed",
-                "2050: Neural verification standard",
-                "2080: Post-quantum transition",
-                "2126: Gradation still valid"
-            ]
-            for pred in predictions:
-                st.markdown(f"- {pred}")
+        st.markdown("#### XML")
+        xml_data = export_xml()
+        st.download_button("📑 XML", xml_data, "gradation.xml", "application/xml")
         
-        with st.container():
-            st.markdown("#### Risk Assessment")
-            risks = {"Current": 0.001, "10 years": 0.01, "50 years": 0.15, "100 years": 0.50}
-            for period, risk in risks.items():
-                st.progress(risk, text=f"{period}: {risk*100:.1f}%")
+        st.markdown("#### YAML")
+        yaml_data = export_yaml()
+        st.download_button("📝 YAML", yaml_data, "gradation.yaml", "text/yaml")
     
-    with st.container():
-        st.markdown("#### Final Report")
-        st.markdown("""
-        **QUANTUM VERIFICATION REPORT**
-        - Signature Integrity: CONFIRMED
-        - Quantum State: ACTIVE
-        - Post-Quantum Ready: YES
-        - Confidence: 99.999%
+    with col3:
+        st.markdown("#### HTML")
+        html_data = export_html()
+        st.download_button("🌐 HTML", html_data, "gradation.html", "text/html")
         
-        **STATUS: QUANTUM VERIFIED**
-        """)
+        st.markdown("#### JWT")
+        st.download_button("🔑 JWT", JWT, "gradation.jwt", "text/plain")
+    
+    st.markdown("---")
+    st.markdown("### Export complet")
+    
+    # Export tout-en-un
+    all_formats = {
+        "json": json_data,
+        "csv": csv_data,
+        "xml": xml_data,
+        "yaml": yaml_data,
+        "html": html_data,
+        "jwt": JWT
+    }
+    
+    all_data = json.dumps(all_formats, indent=2)
+    st.download_button("📦 TOUS LES FORMATS (ZIP simulé)", all_data, "gradation_all_formats.json", "application/json")
 
 # ============================================
 # FOOTER
@@ -433,7 +680,8 @@ elif page == "Future":
 st.markdown("---")
 st.markdown(f"""
 <div style="text-align: center; padding: 20px; font-size: 11px; color: #666;">
-    QUANTUM GRADATION SYSTEM<br>
+    QUANTUM GRADATION SYSTEM v2.0<br>
+    ✅ Export multi-format | 🔔 Notifications | 💾 Base de donnees | 📱 Mode hors ligne<br>
     Last Quantum Pulse: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC
 </div>
 """, unsafe_allow_html=True)
