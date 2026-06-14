@@ -1,9 +1,10 @@
 streamlit
-streamlit-extras
 pynacl
 qrcode
 pillow
 pandas
 plotly
 numpy
-pyyaml
+psutil
+cryptography
+scipy
