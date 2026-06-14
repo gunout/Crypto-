@@ -2,9 +2,7 @@ import streamlit as st
 import json
 import base64
 import hashlib
-import hmac
 import secrets
-import sqlite3
 from datetime import datetime, timedelta
 import qrcode
 from io import BytesIO
@@ -13,14 +11,14 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import math
-import time
-import random
-import binascii
 import statistics
-import os
 import sys
 import platform
 from collections import Counter
+
+# Version Plotly
+import plotly as plotly_lib
+PLOTLY_VERSION = plotly_lib.__version__
 
 # Tentative d'import psutil (optionnel)
 try:
@@ -28,13 +26,6 @@ try:
     HAS_PSUTIL = True
 except ImportError:
     HAS_PSUTIL = False
-
-# Tentative d'import scipy (optionnel)
-try:
-    from scipy import stats
-    HAS_SCIPY = True
-except ImportError:
-    HAS_SCIPY = False
 
 # ============================================
 # CONFIGURATION
@@ -76,17 +67,6 @@ st.markdown("""
     
     .status-valid { background: #0a2a1a; border: 1px solid #00ff88; border-radius: 12px; padding: 1rem; text-align: center; }
     .status-invalid { background: #2a0a0a; border: 1px solid #ff4444; border-radius: 12px; padding: 1rem; text-align: center; }
-    
-    .data-block {
-        background: #0a0a15;
-        border-radius: 12px;
-        padding: 12px;
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
-        word-break: break-all;
-        border: 1px solid #2a2a3e;
-        margin: 10px 0;
-    }
     
     [data-testid="stSidebar"] { background: #0a0a15; border-right: 1px solid #2a2a3e; }
     [data-testid="stMetricValue"] { color: #ffffff !important; font-size: 1.8rem !important; }
@@ -153,17 +133,11 @@ JWT_PAYLOAD = {
     "security_level": "Post-Quantum Ready"
 }
 JWT_B64 = base64.b64encode(json.dumps(JWT_PAYLOAD).encode()).decode()
-JWT = f"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.{JWT_B64}.dummy_signature"
+JWT = f"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.{JWT_B64}"
 
 # ============================================
-# FONCTIONS CRYPTOGRAPHIQUES AVANCEES
+# FONCTIONS CRYPTOGRAPHIQUES
 # ============================================
-
-def hex_to_bytes(hex_str):
-    return bytes.fromhex(hex_str)
-
-def bytes_to_hex(bytes_data):
-    return bytes_data.hex()
 
 def calculate_entropy(data):
     """Calcule l'entropie de Shannon"""
@@ -201,20 +175,6 @@ def calculate_conditional_entropy(data):
         entropy += p * math.log2(p)
     return -entropy
 
-def calculate_autocorrelation(data):
-    """Calcule l'autocorrélation des données"""
-    bytes_data = data.encode() if isinstance(data, str) else data
-    n = len(bytes_data)
-    if n < 2:
-        return []
-    mean = sum(bytes_data) / n
-    autocorr = []
-    for lag in range(1, min(10, n)):
-        num = sum((bytes_data[i] - mean) * (bytes_data[i-lag] - mean) for i in range(lag, n))
-        den = sum((bytes_data[i] - mean)**2 for i in range(n))
-        autocorr.append(num / den if den != 0 else 0)
-    return autocorr
-
 def calculate_avalanche_effect():
     """Calcule l'effet avalanche du hash"""
     original = bytes.fromhex(HASH_FINAL)
@@ -228,7 +188,7 @@ def calculate_avalanche_effect():
     return statistics.mean(changes) if changes else 0
 
 def calculate_sac(modified_positions=10):
-    """Strict Avalanche Criterion - proportion de bits modifiés"""
+    """Strict Avalanche Criterion"""
     original = bytes.fromhex(HASH_FINAL)
     results = []
     for i in range(min(modified_positions, len(original))):
@@ -255,27 +215,27 @@ def verify_signature():
 def calculate_security_strength(bits):
     """Force de sécurité selon NIST"""
     if bits >= 256:
-        return "Post-Quantum Level (5)", 5, "#00ff88"
+        return "Post-Quantum Level (5)", 5
     elif bits >= 192:
-        return "High Security (4)", 4, "#00ffcc"
+        return "High Security (4)", 4
     elif bits >= 128:
-        return "Standard Security (3)", 3, "#ffcc00"
+        return "Standard Security (3)", 3
     elif bits >= 80:
-        return "Legacy Security (2)", 2, "#ff8800"
+        return "Legacy Security (2)", 2
     else:
-        return "Weak Security (1)", 1, "#ff0000"
+        return "Weak Security (1)", 1
 
 def get_system_info():
     """Informations système"""
     info = {
-        "python_version": sys.version,
+        "python_version": sys.version.split()[0],
         "platform": platform.platform(),
-        "processor": platform.processor(),
+        "processor": platform.processor() or "Unknown",
         "hostname": platform.node(),
     }
     if HAS_PSUTIL:
-        info["memory_total"] = psutil.virtual_memory().total / (1024**3)
-        info["memory_available"] = psutil.virtual_memory().available / (1024**3)
+        info["memory_total"] = f"{psutil.virtual_memory().total / (1024**3):.1f} GB"
+        info["memory_available"] = f"{psutil.virtual_memory().available / (1024**3):.1f} GB"
     else:
         info["memory_total"] = "N/A"
         info["memory_available"] = "N/A"
@@ -306,9 +266,9 @@ def get_signature_analysis():
         "entropy": calculate_entropy(SIGNATURE),
         "unique_bytes": len(set(sig_bytes)),
         "unique_ratio": len(set(sig_bytes)) / 256 * 100,
-        "std_dev": np.std(list(sig_bytes)),
-        "mean": np.mean(list(sig_bytes)),
-        "median": np.median(list(sig_bytes))
+        "std_dev": float(np.std(list(sig_bytes))),
+        "mean": float(np.mean(list(sig_bytes))),
+        "median": float(np.median(list(sig_bytes)))
     }
 
 def generate_qr_code(data):
@@ -349,24 +309,6 @@ def create_distribution_chart(data, title):
     fig.update_yaxes(title="Frequency", color='white')
     return fig
 
-def create_autocorrelation_chart():
-    """Graphique d'autocorrélation"""
-    autocorr = calculate_autocorrelation(HASH_FINAL)
-    if not autocorr:
-        autocorr = [0]
-    fig = go.Figure(data=[go.Bar(x=list(range(1, len(autocorr)+1)), y=autocorr)])
-    fig.update_layout(
-        title="Autocorrelation Analysis",
-        xaxis_title="Lag",
-        yaxis_title="Correlation",
-        paper_bgcolor='black',
-        font=dict(color='white'),
-        plot_bgcolor='black'
-    )
-    fig.update_xaxes(color='white')
-    fig.update_yaxes(color='white')
-    return fig
-
 def create_radar_chart():
     """Graphique radar des métriques de sécurité"""
     entropy_data = get_entropy_analysis()
@@ -385,29 +327,6 @@ def create_radar_chart():
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 100], color='white')),
         showlegend=False,
-        paper_bgcolor='black',
-        font=dict(color='white')
-    )
-    return fig
-
-def create_qq_plot(data):
-    """QQ Plot simple sans scipy"""
-    data_sorted = sorted(data)
-    n = len(data_sorted)
-    # Quantiles théoriques pour une distribution normale
-    theoretical = [stats.norm.ppf((i - 0.5) / n) if HAS_SCIPY else (i - 0.5) / n for i in range(1, n+1)]
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=theoretical, y=data_sorted, mode='markers', name='Donnees', marker=dict(color='#00ff88')))
-    # Ligne de référence
-    if data_sorted:
-        min_val, max_val = min(data_sorted), max(data_sorted)
-        fig.add_trace(go.Scatter(x=[min(theoretical), max(theoretical)], y=[min_val, max_val], mode='lines', name='Reference', line=dict(color='red')))
-    
-    fig.update_layout(
-        title="QQ Plot Hash vs Distribution Normale",
-        xaxis_title="Quantiles theoriques",
-        yaxis_title="Quantiles observes",
         paper_bgcolor='black',
         font=dict(color='white')
     )
@@ -437,7 +356,7 @@ with st.sidebar:
     entropy = calculate_entropy(HASH_FINAL)
     st.metric("Entropie Shannon", f"{entropy:.3f} bits")
     
-    sec_strength, level, _ = calculate_security_strength(len(HASH_FINAL) * 4)
+    sec_strength, _ = calculate_security_strength(len(HASH_FINAL) * 4)
     st.metric("Niveau Securite", sec_strength.split()[0])
     
     st.markdown("---")
@@ -571,7 +490,7 @@ elif page == "🔐 Verification Crypto":
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
         st.markdown("### 🔐 Force de Securite")
         bits = len(HASH_FINAL) * 4
-        sec_strength, level, color = calculate_security_strength(bits)
+        sec_strength, level = calculate_security_strength(bits)
         st.markdown(f"""
         | Metrique | Valeur |
         |----------|--------|
@@ -588,18 +507,11 @@ elif page == "🔐 Verification Crypto":
         avalanche = calculate_avalanche_effect()
         sac = calculate_sac()
         
-        st.metric("Avalanche Effect", f"{avalanche:.2f}%", delta=f"{avalanche-50:+.2f}% vs ideal 50%")
-        st.metric("Strict Avalanche Criterion", f"{sac*100:.2f}%", delta=f"{(sac-0.5)*100:+.2f}% vs ideal 50%")
+        st.metric("Avalanche Effect", f"{avalanche:.2f}%", delta=f"{avalanche-50:+.2f}%")
+        st.metric("Strict Avalanche Criterion", f"{sac*100:.2f}%", delta=f"{(sac-0.5)*100:+.2f}%")
         
         st.progress(min(avalanche/100, 1.0))
         st.caption("Valeur ideale: 50% pour une diffusion optimale")
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown("### 📈 Autocorrelation")
-        fig = create_autocorrelation_chart()
-        st.plotly_chart(fig, use_container_width=True)
-        st.caption("L'autocorrelation doit etre proche de zero pour une bonne aleatoire")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
@@ -642,15 +554,15 @@ elif page == "📊 Analyse Entropique":
         # Test de frequence
         ones_count = sum(bin(b).count('1') for b in hash_ints[:100])
         ones_ratio = ones_count / (100 * 8)
-        st.metric("Ratio de bits '1'", f"{ones_ratio*100:.1f}%", delta=f"{ones_ratio-0.5:+.1%} vs 50%")
+        st.metric("Ratio de bits '1'", f"{ones_ratio*100:.1f}%", delta=f"{ones_ratio-0.5:+.1%}")
         
-        # Test de runs (sequences consecutives)
+        # Test de runs
         runs = 1
         for i in range(1, len(hash_ints[:100])):
             if (hash_ints[i] % 2) != (hash_ints[i-1] % 2):
                 runs += 1
         expected_runs = 1 + (99 * 0.5 * 0.5 * 2)
-        st.metric("Nombre de runs", runs, delta=f"{runs-expected_runs:+.0f} vs attente {expected_runs:.0f}")
+        st.metric("Nombre de runs", runs, delta=f"{runs-expected_runs:+.0f}")
         
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -715,14 +627,6 @@ elif page == "📈 Statistiques Avancees":
         fig.update_layout(paper_bgcolor='black', font=dict(color='white'), height=300)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
-    
-    # QQ Plot
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.markdown("### 📈 QQ Plot - Comparaison avec distribution normale")
-    hash_ints = list(bytes.fromhex(HASH_FINAL))
-    fig = create_qq_plot(hash_ints)
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # PAGE 5: SIGNATURE & CERTIFICAT
@@ -869,9 +773,9 @@ elif page == "ℹ️ Informations Systeme":
         st.markdown(f"""
         | Parametre | Valeur |
         |-----------|--------|
-        | **Python** | {sys_info['python_version'].split()[0]} |
+        | **Python** | {sys_info['python_version']} |
         | **Platforme** | {sys_info['platform']} |
-        | **Processeur** | {sys_info['processor'] or 'N/A'} |
+        | **Processeur** | {sys_info['processor']} |
         | **Hostname** | {sys_info['hostname']} |
         | **Memory Total** | {sys_info['memory_total']} |
         | **Memory Available** | {sys_info['memory_available']} |
@@ -884,7 +788,7 @@ elif page == "ℹ️ Informations Systeme":
             "PyNaCl": "✅ Installe" if HAS_NACL else "❌ Non installe",
             "NumPy": np.__version__,
             "Pandas": pd.__version__,
-            "Plotly": go.__version__,
+            "Plotly": PLOTLY_VERSION,
             "psutil": "✅ Installe" if HAS_PSUTIL else "❌ Non installe"
         }
         for lib, version in libs.items():
