@@ -11,9 +11,6 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import math
-import os
-import tempfile
-from streamlit_extras.toast import toast
 import csv
 import xml.etree.ElementTree as ET
 import yaml
@@ -29,7 +26,7 @@ st.set_page_config(
     menu_items={
         'Get Help': 'https://github.com/yourrepo',
         'Report a bug': 'https://github.com/yourrepo/issues',
-        'About': '# Quantum Gradation System v2.0\n## Ameliorations:\n- Export multi-format\n- Notifications\n- Base de donnees\n- Mode hors ligne'
+        'About': '# Quantum Gradation System v2.0'
     }
 )
 
@@ -56,8 +53,62 @@ st.markdown("""
         transform: scale(1.02);
         box-shadow: 0 0 20px rgba(0,255,204,0.5);
     }
+    .notification-success {
+        background: #00aa4433;
+        border-left: 4px solid #00ff88;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+    }
+    .notification-error {
+        background: #aa333333;
+        border-left: 4px solid #ff4444;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+    }
+    .notification-info {
+        background: #00ffcc33;
+        border-left: 4px solid #00ffcc;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# ============================================
+# NOTIFICATIONS NATIVES (sans streamlit-extras)
+# ============================================
+
+def show_notification(message, type="info"):
+    """Affiche une notification native Streamlit"""
+    if type == "success":
+        st.markdown(f'<div class="notification-success">✅ {message}</div>', unsafe_allow_html=True)
+    elif type == "error":
+        st.markdown(f'<div class="notification-error">❌ {message}</div>', unsafe_allow_html=True)
+    elif type == "warning":
+        st.markdown(f'<div class="notification-info">⚠️ {message}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="notification-info">🔔 {message}</div>', unsafe_allow_html=True)
+    
+    # Utiliser aussi st.toast si disponible (Streamlit 1.25+)
+    try:
+        if type == "success":
+            st.toast(f"✅ {message}", icon="✅")
+        elif type == "error":
+            st.toast(f"❌ {message}", icon="❌")
+        else:
+            st.toast(f"🔔 {message}", icon="🔔")
+    except:
+        pass  # st.toast non disponible, on continue
+
+def notify_signature_status(is_valid):
+    """Notifie le statut de la signature"""
+    if is_valid:
+        show_notification("Signature valide! Verification cryptographique reussie.", "success")
+    else:
+        show_notification("Signature invalide! Veuillez verifier les donnees.", "error")
 
 # ============================================
 # BASE DE DONNEES (PERSISTANCE)
@@ -81,33 +132,44 @@ def init_db():
 
 def save_verification(status, entropy):
     """Sauvegarde une verification dans la base"""
-    conn = sqlite3.connect('verifications.db')
-    c = conn.cursor()
-    c.execute("""INSERT INTO verifications 
-                 (timestamp, gradation, hash, signature, public_key, status, entropy) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?)""",
-              (datetime.now().isoformat(), GRADATION, HASH_FINAL[:32], 
-               SIGNATURE[:32], PUBLIC_KEY[:32], status, entropy))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect('verifications.db')
+        c = conn.cursor()
+        c.execute("""INSERT INTO verifications 
+                     (timestamp, gradation, hash, signature, public_key, status, entropy) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                  (datetime.now().isoformat(), GRADATION, HASH_FINAL[:32], 
+                   SIGNATURE[:32], PUBLIC_KEY[:32], status, entropy))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"DB error: {e}")
+        return False
 
 def get_verification_history():
     """Recupere l'historique des verifications"""
-    conn = sqlite3.connect('verifications.db')
-    df = pd.read_sql_query("SELECT * FROM verifications ORDER BY id DESC LIMIT 50", conn)
-    conn.close()
-    return df
+    try:
+        conn = sqlite3.connect('verifications.db')
+        df = pd.read_sql_query("SELECT * FROM verifications ORDER BY id DESC LIMIT 50", conn)
+        conn.close()
+        return df
+    except:
+        return pd.DataFrame()
 
 def get_statistics():
     """Recupere les statistiques depuis la base"""
-    conn = sqlite3.connect('verifications.db')
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM verifications")
-    total = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM verifications WHERE status = 'VALID'")
-    valid = c.fetchone()[0]
-    conn.close()
-    return total, valid
+    try:
+        conn = sqlite3.connect('verifications.db')
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM verifications")
+        total = c.fetchone()[0] if c.fetchone() else 0
+        c.execute("SELECT COUNT(*) FROM verifications WHERE status = 'VALID'")
+        valid = c.fetchone()[0] if c.fetchone() else 0
+        conn.close()
+        return total, valid
+    except:
+        return 0, 0
 
 # ============================================
 # EXPORT MULTI-FORMAT
@@ -166,40 +228,31 @@ def export_html():
     return f"""
     <!DOCTYPE html>
     <html>
-    <head><title>Quantum Gradation {GRADATION}</title></head>
+    <head>
+        <title>Quantum Gradation {GRADATION}</title>
+        <style>
+            body {{ font-family: monospace; background: #0a0a2a; color: #00ffcc; padding: 20px; }}
+            .container {{ max-width: 800px; margin: 0 auto; }}
+            .card {{ background: #1a1a3a; padding: 20px; border-radius: 10px; margin: 10px 0; }}
+            h1 {{ color: #ff00ff; }}
+            .hash {{ font-size: 12px; word-break: break-all; }}
+        </style>
+    </head>
     <body>
-        <h1>Quantum Gradation Report</h1>
-        <p><strong>Gradation:</strong> {GRADATION}</p>
-        <p><strong>Mot:</strong> {MOT}</p>
-        <p><strong>Hash:</strong> {HASH_FINAL}</p>
-        <p><strong>Signature:</strong> {SIGNATURE}</p>
-        <p><strong>Public Key:</strong> {PUBLIC_KEY}</p>
-        <p><strong>Timestamp:</strong> {TIMESTAMP}</p>
+        <div class="container">
+            <h1>Quantum Gradation Report</h1>
+            <div class="card">
+                <p><strong>Gradation:</strong> {GRADATION}</p>
+                <p><strong>Mot:</strong> {MOT}</p>
+                <p><strong>Hash:</strong> <span class="hash">{HASH_FINAL}</span></p>
+                <p><strong>Signature:</strong> <span class="hash">{SIGNATURE}</span></p>
+                <p><strong>Public Key:</strong> <span class="hash">{PUBLIC_KEY}</span></p>
+                <p><strong>Timestamp:</strong> {TIMESTAMP}</p>
+            </div>
+        </div>
     </body>
     </html>
     """
-
-# ============================================
-# NOTIFICATIONS
-# ============================================
-
-def show_notification(message, type="info"):
-    """Affiche une notification"""
-    if type == "success":
-        toast(message, icon="✅")
-    elif type == "error":
-        toast(message, icon="❌")
-    elif type == "warning":
-        toast(message, icon="⚠️")
-    else:
-        toast(message, icon="🔔")
-
-def notify_signature_status(is_valid):
-    """Notifie le statut de la signature"""
-    if is_valid:
-        show_notification("✅ Signature valide! Verification cryptographique reussie.", "success")
-    else:
-        show_notification("❌ Signature invalide! Veuillez verifier les donnees.", "error")
 
 # ============================================
 # MODE HORS LIGNE (PWA)
@@ -219,33 +272,6 @@ def add_pwa_support():
     </script>
     """
     st.components.v1.html(pwa_html, height=0)
-
-def create_service_worker():
-    """Cree le fichier service worker pour le mode hors ligne"""
-    sw_content = """
-    const CACHE_NAME = 'quantum-gradation-v1';
-    const urlsToCache = [
-        '/',
-        '/index.html',
-        '/manifest.json'
-    ];
-
-    self.addEventListener('install', event => {
-        event.waitUntil(
-            caches.open(CACHE_NAME)
-                .then(cache => cache.addAll(urlsToCache))
-        );
-    });
-
-    self.addEventListener('fetch', event => {
-        event.respondWith(
-            caches.match(event.request)
-                .then(response => response || fetch(event.request))
-        );
-    });
-    """
-    with open('sw.js', 'w') as f:
-        f.write(sw_content)
 
 # ============================================
 # VERIFICATION DE PNACL
@@ -297,8 +323,11 @@ JWT = f"eyJhbGciOiJFZERTQSJ9.{JWT_B64}"
 # Initialisation de la base
 init_db()
 
-# Ajout PWA
-add_pwa_support()
+# Ajout PWA (optionnel)
+try:
+    add_pwa_support()
+except:
+    pass
 
 # ============================================
 # FONCTIONS
@@ -612,13 +641,16 @@ elif page == "History":
         st.dataframe(df, use_container_width=True)
         
         # Graphique des tendances
-        df['timestamp_dt'] = pd.to_datetime(df['timestamp'])
-        df['date'] = df['timestamp_dt'].dt.date
-        daily_stats = df.groupby('date').size().reset_index(name='count')
-        
-        fig = px.line(daily_stats, x='date', y='count', title='Tendances des verifications')
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#00ffcc'))
-        st.plotly_chart(fig, use_container_width=True)
+        try:
+            df['timestamp_dt'] = pd.to_datetime(df['timestamp'])
+            df['date'] = df['timestamp_dt'].dt.date
+            daily_stats = df.groupby('date').size().reset_index(name='count')
+            
+            fig = px.line(daily_stats, x='date', y='count', title='Tendances des verifications')
+            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#00ffcc'))
+            st.plotly_chart(fig, use_container_width=True)
+        except:
+            pass
     else:
         st.info("Aucune verification enregistree pour le moment")
 
@@ -672,7 +704,7 @@ elif page == "Export":
     }
     
     all_data = json.dumps(all_formats, indent=2)
-    st.download_button("📦 TOUS LES FORMATS (ZIP simulé)", all_data, "gradation_all_formats.json", "application/json")
+    st.download_button("📦 TOUS LES FORMATS (ZIP simule)", all_data, "gradation_all_formats.json", "application/json")
 
 # ============================================
 # FOOTER
