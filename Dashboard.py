@@ -74,11 +74,11 @@ def verify_signature():
     if not HAS_NACL:
         return True, "Mode demo"
     try:
-        hash_bytes = bytes.fromhex(HASH_FINAL)
-        signature_bytes = bytes.fromhex(SIGNATURE)
-        public_key_bytes = bytes.fromhex(PUBLIC_KEY)
-        verify_key = nacl.signing.VerifyKey(public_key_bytes)
-        verify_key.verify(hash_bytes, signature_bytes)
+        hash_bytes_val = bytes.fromhex(HASH_FINAL)
+        signature_bytes_val = bytes.fromhex(SIGNATURE)
+        public_key_bytes_val = bytes.fromhex(PUBLIC_KEY)
+        verify_key = nacl.signing.VerifyKey(public_key_bytes_val)
+        verify_key.verify(hash_bytes_val, signature_bytes_val)
         return True, "Signature valide"
     except Exception as e:
         return False, str(e)
@@ -97,7 +97,7 @@ def quantum_entropy_analysis(data):
             entropy += abs(ord(data[i]) - ord(data[j])) / (j-i)
     return {
         "quantum_entropy": entropy / len(data) if data else 0,
-        "superposition_score": (entropy % 256) / 256 * 100
+        "superposition_score": (entropy % 256) / 256 * 100 if entropy else 0
     }
 
 def generate_qr_code(data):
@@ -166,7 +166,7 @@ with st.sidebar:
     quantum_ent = quantum_entropy_analysis(HASH_FINAL)
     st.metric("Quantum Entropy", f"{quantum_ent['quantum_entropy']:.2f}")
     
-    collision_prob = 1 / (2 ** (len(HASH_FINAL) * 2))
+    collision_prob = 1 / (2 ** (len(HASH_FINAL) * 2)) if (2 ** (len(HASH_FINAL) * 2)) > 0 else 0
     st.metric("Collision Risk", f"{collision_prob:.2e}")
 
 # ============================================
@@ -235,23 +235,25 @@ elif page == "Verification":
         
         with st.container():
             st.markdown("#### Signature Analysis")
-            sig_bytes = bytes.fromhex(SIGNATURE)[:20]
-            metrics = {
-                "Randomness": f"{np.std(list(sig_bytes)):.2f}",
-                "Entropy Rate": f"{len(set(sig_bytes))/256*100:.1f}%",
-                "Confidence": "99.999%"
-            }
-            for k, v in metrics.items():
-                st.metric(k, v)
+            sig_bytes_list = list(bytes.fromhex(SIGNATURE)[:20])
+            if sig_bytes_list:
+                metrics = {
+                    "Randomness": f"{float(np.std(sig_bytes_list)):.2f}",
+                    "Entropy Rate": f"{len(set(sig_bytes_list))/256*100:.1f}%",
+                    "Confidence": "99.999%"
+                }
+                for k, v in metrics.items():
+                    st.metric(k, v)
     
     with col2:
         with st.container():
             st.markdown("#### Neural Pattern")
             sig_ints = [int(b) for b in bytes.fromhex(SIGNATURE)[:64]]
-            heat_data = np.array(sig_ints[:64]).reshape(8, 8)
-            fig = px.imshow(heat_data, color_continuous_scale='Viridis', aspect='auto')
-            fig.update_layout(height=400, paper_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            if sig_ints:
+                heat_data = np.array(sig_ints[:64]).reshape(8, 8)
+                fig = px.imshow(heat_data, color_continuous_scale='Viridis', aspect='auto')
+                fig.update_layout(height=400, paper_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig, use_container_width=True)
         
         with st.container():
             st.markdown("#### Verification Confidence")
@@ -299,11 +301,14 @@ elif page == "Entropy":
         
         with st.container():
             st.markdown("#### Byte Distribution")
-            hash_bytes = bytes.fromhex(HASH_FINAL)
-            byte_counts = np.bincount(hash_bytes, minlength=256)
-            fig = go.Figure(data=[go.Scatter(x=list(range(256)), y=byte_counts, mode='lines', fill='tozeroy')])
-            fig.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            hash_bytes_val = bytes.fromhex(HASH_FINAL)
+            # Convertir bytes en liste d'entiers pour bincount
+            hash_int_list = list(hash_bytes_val)
+            if hash_int_list:
+                byte_counts = np.bincount(hash_int_list, minlength=256)
+                fig = go.Figure(data=[go.Scatter(x=list(range(256)), y=byte_counts, mode='lines', fill='tozeroy')])
+                fig.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig, use_container_width=True)
     
     with st.container():
         st.markdown("#### Entropy Generation Method")
