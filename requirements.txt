@@ -1,1 +1,10 @@
-streamlit nacl qrcode pillow pandas plotly numpy networkx matplotlib pycryptodome
+streamlit 
+nacl 
+qrcode 
+pillow 
+pandas 
+plotly 
+numpy 
+networkx 
+matplotlib 
+pycryptodome
